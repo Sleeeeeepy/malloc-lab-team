@@ -45,7 +45,36 @@ team_t team = {
 
 #define WSIZE sizeof(void *)
 #define DSIZE (2 * WSIZE)
+#define CHUNKSIZE (1 << 12) /* Extend heap by this amount (bytes) */
 
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
+#define MIN(x, y) ((x) > (y) ? (y) : (x))
+
+/* Pack a size and allocated bit into a word */
+#define PACK(size, alloc) ((size) | (alloc))
+
+/* Read and write a word at address p */
+#define GET(p)      (*(unsigned int *)(p))
+#define PUT(p, val) (*(unsigned int *)(p) = (val))
+
+/* Read the size and allocated fields from address p */
+#define GET_SIZE(p)  (GET(p) & ~0x7)
+#define GET_ALLOC(p) (GET(p) & 0x1)
+
+/* Given block ptr bp, compute address of its header and footer */
+#define HDRP(bp) ((unsigned char *)(bp)-WSIZE)
+#define FTRP(bp) ((unsigned char *)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)
+
+/* Given block ptr bp, compute address of next and previous blocks */
+#define NEXT_BLKP(bp) \
+    ((unsigned char *)(bp) + GET_SIZE(((unsigned char *)(bp)-WSIZE)))
+#define PREV_BLKP(bp) \
+    ((unsigned char *)(bp)-GET_SIZE(((unsigned char *)(bp)-DSIZE)))
+
+#define PRED(bp) (*(unsigned char **)(bp))
+#define SUCC(bp) (*(unsigned char **)((bp) + WSIZE))
+
+typedef enum { ZERO_BLK = 0, FREE_BLK = 0, ALLOC_BLK = 1 } block_status_t;
 /*
  * mm_init - initialize the malloc package.
  */
