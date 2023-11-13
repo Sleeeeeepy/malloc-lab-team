@@ -43,6 +43,9 @@ team_t team = {
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
+#define WSIZE sizeof(void *)
+#define DSIZE (2 * WSIZE)
+
 /*
  * mm_init - initialize the malloc package.
  */
