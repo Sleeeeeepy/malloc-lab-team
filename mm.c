@@ -102,6 +102,7 @@ int mm_init(void) {
     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, ALLOC_BLK));  // Prologue footer
     PUT(heap_listp + (3 * WSIZE), PACK(0, ALLOC_BLK));  // Epilogue header
 
+
     heap_listp = heap_listp + (2 * WSIZE);
     free_listp = NULL;
 
@@ -160,23 +161,30 @@ static void *coalesce(void *ptr) {
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(ptr)));
     size_t size = GET_SIZE(HDRP(ptr));
 
-    if (prev_alloc && next_alloc) {
-        return ptr;
-    } else if (prev_alloc && !next_alloc) {
+
+    // Update free list and header, footer
+    if (prev_alloc && !next_alloc) {
+        detach_free_list(NEXT_BLKP(ptr));
         size += GET_SIZE(HDRP(NEXT_BLKP(ptr)));
         PUT(HDRP(ptr), PACK(size, FREE_BLK));
         PUT(FTRP(ptr), PACK(size, FREE_BLK));
     } else if (!prev_alloc && next_alloc) {
+        detach_free_list(PREV_BLKP(ptr));
         size += GET_SIZE(HDRP(PREV_BLKP(ptr)));
         PUT(FTRP(ptr), PACK(size, FREE_BLK));
         PUT(HDRP(PREV_BLKP(ptr)), PACK(size, FREE_BLK));
         ptr = PREV_BLKP(ptr);
-    } else {
+    } else if (!prev_alloc && !next_alloc) {
+        detach_free_list(PREV_BLKP(ptr));
+        detach_free_list(NEXT_BLKP(ptr));
         size += GET_SIZE(HDRP(PREV_BLKP(ptr))) + GET_SIZE(FTRP(NEXT_BLKP(ptr)));
         PUT(HDRP(PREV_BLKP(ptr)), PACK(size, FREE_BLK));
         PUT(FTRP(NEXT_BLKP(ptr)), PACK(size, FREE_BLK));
         ptr = PREV_BLKP(ptr);
     }
+
+    attach_free_list(ptr);
+    free_listp = ptr;
     return ptr;
 }
 
@@ -221,7 +229,7 @@ static void *extend_heap(size_t words) {
 
 static void *find_fit(size_t asize) {
     void *bp;
-
+  
     for (bp = free_listp; GET_SIZE(HDRP(bp)) != NULL; bp = SUCC(bp)) {
         if (GET_SIZE(HDRP(bp)) >= asize) {
             return bp;
@@ -233,7 +241,7 @@ static void *find_fit(size_t asize) {
 
 static void place(void *bp, size_t asize) {
     size_t csize = GET_SIZE(HDRP(bp));
-    csize =
+  
     if ((csize - asize) >= (2 * DSIZE)) {
         PUT(HDRP(bp), PACK(asize, ALLOC_BLK));
         PUT(FTRP(bp), PACK(asize, ALLOC_BLK));
@@ -245,5 +253,36 @@ static void place(void *bp, size_t asize) {
         PUT(HDRP(bp), PACK(csize, ALLOC_BLK));
         PUT(FTRP(bp), PACK(csize, ALLOC_BLK));
     }
+}
 
+static void *attach_free_list(void *bp) {
+    SUCC(bp) = free_listp;
+    if (free_listp != NULL) {
+        PRED(free_listp) = bp;
+    }
+
+    free_listp = bp;
+    return bp;
+}
+
+static void *detach_free_list(void *bp) {
+    if (bp == free_listp) {
+        free_listp = NULL;
+        if (SUCC(bp) == NULL) {
+            return bp;
+        }
+        SUCC(bp) = NULL;
+
+        return bp;
+    }
+
+    if (SUCC(bp) != NULL) {
+        PRED(SUCC(bp)) = PRED(bp);
+    }
+
+    if (PRED(bp) != NULL) {
+        SUCC(PRED(bp)) = SUCC(bp);
+    }
+
+    return bp;
 }
