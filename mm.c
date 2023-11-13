@@ -43,8 +43,8 @@ team_t team = {
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
-#define WSIZE sizeof(void *)
-#define DSIZE (2 * WSIZE)
+#define WSIZE     sizeof(void *)
+#define DSIZE     (2 * WSIZE)
 #define CHUNKSIZE (1 << 12) /* Extend heap by this amount (bytes) */
 
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
@@ -79,6 +79,7 @@ typedef enum { ZERO_BLK = 0, FREE_BLK = 0, ALLOC_BLK = 1 } block_status_t;
 /* Declarations */
 static void place(void *bp, size_t asize);
 static void *find_fit(size_t asize);
+static void *extend_heap(size_t);
 
 /* Heap list */
 static void *heap_listp = NULL;
@@ -86,7 +87,26 @@ static void *heap_listp = NULL;
 /*
  * mm_init - initialize the malloc package.
  */
-int mm_init(void) { return 0; }
+int mm_init(void) {
+    // Create the initial emtpy heap
+    void *heap_pt;
+    if ((heap_pt) = mem_sbrk(4 * WSIZE) == (void *)-1) {
+        return -1;
+    }
+
+    PUT(heap_pt, ZERO_BLK);                              // Alignment padding
+    PUT(heap_pt + (1 * WSIZE), PACK(DSIZE, ALLOC_BLK));  // Prologue header
+    PUT(heap_pt + (2 * WSIZE), PACK(DSIZE, ALLOC_BLK));  // Prologue footer
+    PUT(heap_pt + (3 * WSIZE), PACK((int)NULL, ALLOC_BLK));  // Epilogue header
+
+    heap_pt = heap_pt + (2 * WSIZE);
+
+    // Extend the empty heap with a free block of CHUNKSIZE bytes
+    if (extend_heap(CHUNKSIZE / WSIZE) == NULL) {
+        return -1;
+    }
+    return 0;
+}
 
 /*
  * mm_malloc - Allocate a block by incrementing the brk pointer.
@@ -142,6 +162,27 @@ void *mm_realloc(void *ptr, size_t size) {
     return newptr;
 }
 
+/*
+ * extend_heap - Extend the heap by allocating a new free block.
+ */
+static void *extend_heap(size_t words) {
+    char *bp;
+    size_t size;
+
+    // Allocate an even number of words to maintain alignment
+    size = (words % 2) ? (words + 1) * WSIZE : words * WSIZE;
+    if ((long)(bp = mem_sbrk(size)) == -1) {
+        return NULL;
+    }
+
+    // Initialize free block header/footer and the epilogue header
+    PUT(HDRP(bp), PACK(size, FREE_BLK));           // Free block header
+    PUT(FTRP(bp), PACK(size, FREE_BLK));           // Free block footer
+    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, ALLOC_BLK));  // New epilogue header
+
+    // Coalesce if the previous block was free
+    return coalesce(bp);
+
 static void *find_fit(size_t asize) {
     void *bp;
 
@@ -168,4 +209,5 @@ static void place(void *bp, size_t asize) {
 
     PUT(HDRP(bp), PACK(csize, ALLOC_BLK));
     PUT(FTRP(bp), PACK(csize, ALLOC_BLK));
+
 }
