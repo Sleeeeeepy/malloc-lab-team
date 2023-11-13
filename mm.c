@@ -222,8 +222,8 @@ static void *extend_heap(size_t words) {
 static void *find_fit(size_t asize) {
     void *bp;
 
-    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
-        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))) {
+    for (bp = free_listp; GET_SIZE(HDRP(bp)) != NULL; bp = SUCC(bp)) {
+        if (GET_SIZE(HDRP(bp)) >= asize) {
             return bp;
         }
     }
@@ -233,17 +233,17 @@ static void *find_fit(size_t asize) {
 
 static void place(void *bp, size_t asize) {
     size_t csize = GET_SIZE(HDRP(bp));
-
+    csize =
     if ((csize - asize) >= (2 * DSIZE)) {
         PUT(HDRP(bp), PACK(asize, ALLOC_BLK));
         PUT(FTRP(bp), PACK(asize, ALLOC_BLK));
         bp = NEXT_BLKP(bp);
         PUT(HDRP(bp), PACK(csize - asize, FREE_BLK));
         PUT(FTRP(bp), PACK(csize - asize, FREE_BLK));
-        return;
+        attach_free_list(bp);
+    }else{
+        PUT(HDRP(bp), PACK(csize, ALLOC_BLK));
+        PUT(FTRP(bp), PACK(csize, ALLOC_BLK));
     }
-
-    PUT(HDRP(bp), PACK(csize, ALLOC_BLK));
-    PUT(FTRP(bp), PACK(csize, ALLOC_BLK));
 
 }
