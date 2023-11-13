@@ -75,6 +75,9 @@ team_t team = {
 #define SUCC(bp) (*(unsigned char **)((bp) + WSIZE))
 
 typedef enum { ZERO_BLK = 0, FREE_BLK = 0, ALLOC_BLK = 1 } block_status_t;
+
+static void *coalesce(void *);
+
 /*
  * mm_init - initialize the malloc package.
  */
