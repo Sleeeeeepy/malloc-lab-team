@@ -90,17 +90,16 @@ static void *heap_listp = NULL;
  */
 int mm_init(void) {
     // Create the initial emtpy heap
-    void *heap_pt;
-    if ((heap_pt) = mem_sbrk(4 * WSIZE) == (void *)-1) {
+    if ((heap_listp = mem_sbrk(4 * WSIZE)) == (void *)-1) {
         return -1;
     }
 
-    PUT(heap_pt, ZERO_BLK);                              // Alignment padding
-    PUT(heap_pt + (1 * WSIZE), PACK(DSIZE, ALLOC_BLK));  // Prologue header
-    PUT(heap_pt + (2 * WSIZE), PACK(DSIZE, ALLOC_BLK));  // Prologue footer
-    PUT(heap_pt + (3 * WSIZE), PACK((int)NULL, ALLOC_BLK));  // Epilogue header
+    PUT(heap_listp, 0);                              // Alignment padding
+    PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, ALLOC_BLK));  // Prologue header
+    PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, ALLOC_BLK));  // Prologue footer
+    PUT(heap_listp + (3 * WSIZE), PACK(0, ALLOC_BLK));  // Epilogue header
 
-    heap_pt = heap_pt + (2 * WSIZE);
+    heap_listp = heap_listp + (2 * WSIZE);
 
     // Extend the empty heap with a free block of CHUNKSIZE bytes
     if (extend_heap(CHUNKSIZE / WSIZE) == NULL) {
@@ -214,6 +213,7 @@ static void *extend_heap(size_t words) {
 
     // Coalesce if the previous block was free
     return coalesce(bp);
+}
 
 static void *find_fit(size_t asize) {
     void *bp;
