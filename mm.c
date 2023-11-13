@@ -254,3 +254,35 @@ static void place(void *bp, size_t asize) {
     PUT(HDRP(bp), PACK(csize, ALLOC_BLK));
     PUT(FTRP(bp), PACK(csize, ALLOC_BLK));
 }
+
+static void *attach_free_list(void *bp) {
+    SUCC(bp) = free_listp;
+    if (free_listp != NULL) {
+        PRED(free_listp) = bp;
+    }
+
+    free_listp = bp;
+    return bp;
+}
+
+static void *detach_free_list(void *bp) {
+    if (bp == free_listp) {
+        free_listp = NULL;
+        if (SUCC(bp) == NULL) {
+            return bp;
+        }
+        SUCC(bp) = NULL;
+
+        return bp;
+    }
+
+    if (SUCC(bp) != NULL) {
+        PRED(SUCC(bp)) = PRED(bp);
+    }
+
+    if (PRED(bp) != NULL) {
+        SUCC(PRED(bp)) = SUCC(bp);
+    }
+
+    return bp;
+}
