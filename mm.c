@@ -87,24 +87,6 @@ static void *detach_free_list(void *bp);
 /* Heap list */
 static void *heap_listp = NULL;
 static void *free_listp = NULL;
-
-void *attach_free_list(void *bp){
-    SUCC(bp) = free_listp;
-    PRED(bp) = NULL;
-    PRED(free_listp) = bp;
-    free_listp = bp;
-}
-
-void *detach_free_list(void *bp){
-    if(bp == free_listp){
-        PRED(SUCC(bp)) = NULL;
-        free_listp = SUCC(bp);
-    }else{
-        SUCC(PRED(bp)) = SUCC(bp);
-        PRED(SUCC(bp)) = PRED(bp);
-    }
-}
-
 /*
  * mm_init - initialize the malloc package.
  */
