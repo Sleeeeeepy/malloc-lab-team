@@ -87,6 +87,7 @@ static void *detach_free_list(void *bp);
 /* Heap list */
 static void *heap_listp = NULL;
 static void *free_listp = NULL;
+
 /*
  * mm_init - initialize the malloc package.
  */
@@ -129,7 +130,7 @@ void *mm_malloc(size_t size) {
     } else {
         asize = DSIZE * ((size + DSIZE + DSIZE - 1) / DSIZE);
     }
-    
+
     if ((bp = find_fit(asize)) != NULL) {
         place(bp, asize);
         return bp;
@@ -159,30 +160,23 @@ static void *coalesce(void *ptr) {
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(ptr)));
     size_t size = GET_SIZE(HDRP(ptr));
 
-    if(prev_alloc && !next_alloc){
-        detach_free_list(NEXT_BLKP(ptr));
+    if (prev_alloc && next_alloc) {
+        return ptr;
+    } else if (prev_alloc && !next_alloc) {
         size += GET_SIZE(HDRP(NEXT_BLKP(ptr)));
-        PUT(HDRP(ptr), PACK(size,ALLOC_BLK));
-        PUT(FTRP(ptr), PACK(size,ALLOC_BLK));
-    }
-    else if(!prev_alloc && next_alloc){
-        detach_free_list(PREV_BLKP(ptr));
+        PUT(HDRP(ptr), PACK(size, FREE_BLK));
+        PUT(FTRP(ptr), PACK(size, FREE_BLK));
+    } else if (!prev_alloc && next_alloc) {
         size += GET_SIZE(HDRP(PREV_BLKP(ptr)));
+        PUT(FTRP(ptr), PACK(size, FREE_BLK));
+        PUT(HDRP(PREV_BLKP(ptr)), PACK(size, FREE_BLK));
         ptr = PREV_BLKP(ptr);
-        PUT(HDRP(ptr), PACK(size,ALLOC_BLK));
-        PUT(FTRP(ptr), PACK(size,ALLOC_BLK));
-    }
-    else if(!prev_alloc && !next_alloc){
-        detach_free_list(PREV_BLKP(ptr));
-        detach_free_list(NEXT_BLKP(ptr));
-        size += GET_SIZE(HDRP(PREV_BLKP(ptr))) +
-                GET_SIZE(FTRP(NEXT_BLKP(ptr)));
-        PUT(HDRP(PREV_BLKP(ptr)), PACK(size,ALLOC_BLK));
-        PUT(FTRP(NEXT_BLKP(ptr)), PACK(size,ALLOC_BLK));
+    } else {
+        size += GET_SIZE(HDRP(PREV_BLKP(ptr))) + GET_SIZE(FTRP(NEXT_BLKP(ptr)));
+        PUT(HDRP(PREV_BLKP(ptr)), PACK(size, FREE_BLK));
+        PUT(FTRP(NEXT_BLKP(ptr)), PACK(size, FREE_BLK));
         ptr = PREV_BLKP(ptr);
     }
-    attach_free_list(ptr);
-
     return ptr;
 }
 
@@ -226,13 +220,14 @@ static void *extend_heap(size_t words) {
 }
 
 static void *find_fit(size_t asize) {
-    void * ptr;
-    ptr = free_listp;
-    for (ptr; GET_ALLOC(HDRP(ptr)) != 1; ptr = SUCC(ptr)){
-        if (GET_SIZE(HDRP(ptr)) >= asize){
-            return ptr;
+    void *bp;
+
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
+        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))) {
+            return bp;
         }
     }
+
     return NULL;
 }
 
