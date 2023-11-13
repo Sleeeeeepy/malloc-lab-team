@@ -81,9 +81,12 @@ static void place(void *bp, size_t asize);
 static void *find_fit(size_t asize);
 static void *extend_heap(size_t);
 static void *coalesce(void *);
+static void *attach_free_list(void *bp);
+static void *detach_free_list(void *bp);
+
 /* Heap list */
 static void *heap_listp = NULL;
-
+static void *free_listp = NULL;
 
 /*
  * mm_init - initialize the malloc package.
@@ -100,7 +103,8 @@ int mm_init(void) {
     PUT(heap_listp + (3 * WSIZE), PACK(0, ALLOC_BLK));  // Epilogue header
 
     heap_listp = heap_listp + (2 * WSIZE);
-
+    free_listp = NULL;
+    
     // Extend the empty heap with a free block of CHUNKSIZE bytes
     if (extend_heap(CHUNKSIZE / WSIZE) == NULL) {
         return -1;
