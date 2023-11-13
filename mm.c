@@ -160,23 +160,31 @@ static void *coalesce(void *ptr) {
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(ptr)));
     size_t size = GET_SIZE(HDRP(ptr));
 
-    if (prev_alloc && next_alloc) {
-        return ptr;
-    } else if (prev_alloc && !next_alloc) {
+    // Update free list and header, footer
+    if (prev_alloc && !next_alloc) {
+        detach_free_list(NEXT_BLKP(ptr));
+
         size += GET_SIZE(HDRP(NEXT_BLKP(ptr)));
         PUT(HDRP(ptr), PACK(size, FREE_BLK));
         PUT(FTRP(ptr), PACK(size, FREE_BLK));
     } else if (!prev_alloc && next_alloc) {
+        detach_free_list(PREV_BLKP(ptr));
+
         size += GET_SIZE(HDRP(PREV_BLKP(ptr)));
         PUT(FTRP(ptr), PACK(size, FREE_BLK));
         PUT(HDRP(PREV_BLKP(ptr)), PACK(size, FREE_BLK));
         ptr = PREV_BLKP(ptr);
-    } else {
+    } else if (!prev_alloc && !next_alloc) {
+        detach_free_list(PREV_BLKP(ptr));
+        detach_free_list(NEXT_BLKP(ptr));
+
         size += GET_SIZE(HDRP(PREV_BLKP(ptr))) + GET_SIZE(FTRP(NEXT_BLKP(ptr)));
         PUT(HDRP(PREV_BLKP(ptr)), PACK(size, FREE_BLK));
         PUT(FTRP(NEXT_BLKP(ptr)), PACK(size, FREE_BLK));
         ptr = PREV_BLKP(ptr);
     }
+    attach_free_list(ptr);
+    free_listp = ptr;
     return ptr;
 }
 
