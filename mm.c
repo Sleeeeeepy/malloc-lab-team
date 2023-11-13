@@ -43,8 +43,8 @@ team_t team = {
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
-#define WSIZE sizeof(void *)
-#define DSIZE (2 * WSIZE)
+#define WSIZE     sizeof(void *)
+#define DSIZE     (2 * WSIZE)
 #define CHUNKSIZE (1 << 12) /* Extend heap by this amount (bytes) */
 
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
@@ -106,32 +106,30 @@ void mm_free(void *ptr) {
     coalesce(ptr);
 }
 
-static void *coalesce(void *ptr){
-    size_t prev_alloc  = GET_ALLOC(FTRP(PREV_BLKP(ptr)));
-    size_t next_alloc  = GET_ALLOC(HDRP(NEXT_BLKP(ptr)));
+static void *coalesce(void *ptr) {
+    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(ptr)));
+    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(ptr)));
     size_t size = GET_SIZE(HDRP(ptr));
 
-    if(prev_alloc && next_alloc){
+    if (prev_alloc && next_alloc) {
         return ptr;
+    } else if (prev_alloc && !next_alloc) {
+        size += GET_SIZE(HDRP(NEXT_BLKP(ptr)));
+        PUT(HDRP(ptr), PACK(size, FREE_BLK));
+        PUT(FTRP(ptr), PACK(size, FREE_BLK));
+    } else if (!prev_alloc && next_alloc) {
+        size += GET_SIZE(HDRP(PREV_BLKP(ptr)));
+        PUT(FTRP(ptr), PACK(size, FREE_BLK));
+        PUT(HDRP(PREV_BLKP(ptr)), PACK(size, FREE_BLK));
+        ptr = PREV_BLKP(ptr);
+    } else {
+        size += GET_SIZE(HDRP(PREV_BLKP(ptr))) + GET_SIZE(FTRP(NEXT_BLKP(ptr)));
+        PUT(HDRP(PREV_BLKP(ptr)), PACK(size, FREE_BLK));
+        PUT(FTRP(NEXT_BLKP(ptr)), PACK(size, FREE_BLK));
+        ptr = PREV_BLKP(ptr);
     }
-else if(prev_alloc && !next_alloc){
-    size += GET_SIZE(HDRP(NEXT_BLKP(ptr)));
-    PUT(HDRP(ptr), PACK(size, FREE_BLK));
-    PUT(FTRP(ptr), PACK(size, FREE_BLK));
-}else if(!prev_alloc && next_alloc){
-size += GET_SIZE(HDRP(PREV_BLKP(ptr)));
-PUT(FTRP(ptr), PACK(size, FREE_BLK));
-PUT(HDRP(PREV_BLKP(ptr)), PACK(size, FREE_BLK));
-ptr = PREV_BLKP(ptr);
-}else{
-size += GET_SIZE(HDRP(PREV_BLKP(ptr))) + GET_SIZE(FTRP(NEXT_BLKP(ptr)));
-PUT(HDRP(PREV_BLKP(ptr)), PACK(size, FREE_BLK));
-    PUT(FTRP(NEXT_BLKP(ptr)), PACK(size, FREE_BLK));
-ptr = PREV_BLKP(ptr);
+    return ptr;
 }
-return ptr;
-}
-
 
 /*
  * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
