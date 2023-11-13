@@ -75,6 +75,14 @@ team_t team = {
 #define SUCC(bp) (*(unsigned char **)((bp) + WSIZE))
 
 typedef enum { ZERO_BLK = 0, FREE_BLK = 0, ALLOC_BLK = 1 } block_status_t;
+
+/* Declarations */
+static void place(void *bp, size_t asize);
+static void *find_fit(size_t asize);
+
+/* Heap list */
+static void *heap_listp = NULL;
+
 /*
  * mm_init - initialize the malloc package.
  */
@@ -85,14 +93,31 @@ int mm_init(void) { return 0; }
  *     Always allocate a block whose size is a multiple of the alignment.
  */
 void *mm_malloc(size_t size) {
-    int newsize = ALIGN(size + SIZE_T_SIZE);
-    void *p = mem_sbrk(newsize);
-    if (p == (void *)-1)
+    size_t asize;
+    size_t extend_size;
+    unsigned char *bp;
+
+    if (size == 0) {
         return NULL;
-    else {
-        *(size_t *)p = size;
-        return (void *)((char *)p + SIZE_T_SIZE);
     }
+
+    if (size <= DSIZE) {
+        asize = 2 * DSIZE;
+    } else {
+        asize = DSIZE * ((size + DSIZE + DSIZE - 1) / DSIZE);
+    }
+    
+    if ((bp = find_fit(asize)) != NULL) {
+        place(bp, asize);
+        return bp;
+    }
+
+    extend_size = MAX(asize, CHUNKSIZE);
+    if ((bp = extend_heap(extend_size / WSIZE)) == NULL) {
+        return NULL;
+    }
+    place(bp, asize);
+    return bp;
 }
 
 /*
@@ -115,4 +140,32 @@ void *mm_realloc(void *ptr, size_t size) {
     memcpy(newptr, oldptr, copySize);
     mm_free(oldptr);
     return newptr;
+}
+
+static void *find_fit(size_t asize) {
+    void *bp;
+
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
+        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))) {
+            return bp;
+        }
+    }
+
+    return NULL;
+}
+
+static void place(void *bp, size_t asize) {
+    size_t csize = GET_SIZE(HDRP(bp));
+
+    if ((csize - asize) >= (2 * DSIZE)) {
+        PUT(HDRP(bp), PACK(asize, ALLOC_BLK));
+        PUT(FTRP(bp), PACK(asize, ALLOC_BLK));
+        bp = NEXT_BLKP(bp);
+        PUT(HDRP(bp), PACK(csize - asize, FREE_BLK));
+        PUT(FTRP(bp), PACK(csize - asize, FREE_BLK));
+        return;
+    }
+
+    PUT(HDRP(bp), PACK(csize, ALLOC_BLK));
+    PUT(FTRP(bp), PACK(csize, ALLOC_BLK));
 }
