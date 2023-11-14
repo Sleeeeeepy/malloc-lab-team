@@ -105,7 +105,7 @@ int mm_init(void) {
 
     heap_listp = heap_listp + (2 * WSIZE);
     for (size_t i = 0; i < SEG_LIST_LEN; i++) {
-        free_listp[SEG_LIST_LEN] = NULL;
+        free_listp[i] = NULL;
     }
 
     // Extend the empty heap with a free block of CHUNKSIZE bytes
