@@ -43,9 +43,9 @@ team_t team = {
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
-#define WSIZE     sizeof(void *)
-#define DSIZE     (2 * WSIZE)
-#define CHUNKSIZE (1 << 12) /* Extend heap by this amount (bytes) */
+#define WSIZE        sizeof(void *)
+#define DSIZE        (2 * WSIZE)
+#define CHUNKSIZE    (1 << 12) /* Extend heap by this amount (bytes) */
 #define SEG_LIST_LEN 20
 
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
@@ -248,8 +248,9 @@ static void *find_fit(size_t asize) {
 
 static void *find_fit(size_t asize) {
     void *bp;
+    size_t index = asize_to_index(asize);
 
-    for (bp = free_listp; bp != NULL; bp = SUCC(bp)) {
+    for (bp = free_listp[index]; bp != NULL; bp = SUCC(bp)) {
         if (GET_SIZE(HDRP(bp)) >= asize) {
             return bp;
         }
@@ -316,26 +317,33 @@ static void *attach_free_list(void *bp, size_t asize) {
 }
 
 static void *detach_free_list(void *bp) {
-    // TODO: Implement detach_free_list
+    size_t asize = GET_SIZE(HDRP(bp));
+    size_t index = asize_to_index(asize);
+    // void *curr_bp = free_listp[index];
+    if (bp == free_listp[index]) {
+        free_listp[index] = SUCC(bp);
+    } else if (SUCC(bp) == NULL) {
+        SUCC(PRED(bp)) = NULL;
+    } else if (SUCC(bp) != NULL) {
+        SUCC(PRED(bp)) = SUCC(bp);
+        PRED(SUCC(bp)) = PRED(bp);
+    }
     return bp;
 }
 
 static size_t asize_to_index(size_t asize) {
     size_t power = 1;
     size_t index = 0;
-
     if (asize == 0) {
         return 0;
     }
-
     while (power <= asize) {
         power <<= 1;
         index += 1;
     }
 
     if (index >= SEG_LIST_LEN) {
-        return SEG_LIST_LEN - 1;
+        index = SEG_LIST_LEN - 1;
     }
-
     return index;
 }
