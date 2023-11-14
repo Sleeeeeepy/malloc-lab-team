@@ -84,6 +84,7 @@ static void *extend_heap(size_t);
 static void *coalesce(void *);
 static void *attach_free_list(void *bp, size_t asize);
 static void *detach_free_list(void *bp);
+static size_t asize_to_index(size_t asize);
 
 /* Heap list */
 static void *heap_listp = NULL;
@@ -229,6 +230,23 @@ static void *extend_heap(size_t words) {
 }
 
 static void *find_fit(size_t asize) {
+    size_t start_index = asize_to_index(asize);
+    for (size_t i = start_index; i < SEG_LIST_LEN; i++) {
+        if (free_listp[i] == NULL) {
+            continue;
+        }
+
+        for (void *bp = free_listp[i]; bp != NULL; bp = SUCC(bp)) {
+            if (GET_SIZE(HDRP(bp)) >= asize) {
+                return bp;
+            }
+        }
+    }
+
+    return NULL;
+}
+
+static void *find_fit(size_t asize) {
     void *bp;
 
     for (bp = free_listp; bp != NULL; bp = SUCC(bp)) {
@@ -257,11 +275,67 @@ static void place(void *bp, size_t asize) {
 }
 
 static void *attach_free_list(void *bp, size_t asize) {
-    // TODO: Implement attach_free_list
+    int index = 0;
+    void *current;
+    void *tmp = NULL;
+
+    while((index < SEG_LIST_LEN - 1) && (size > 1)){
+        size >>= 1;
+        index += 1;
+    }
+    current = free_listp[index];
+    while (( current != NULL ) && ( size > GET_SIZE(HDRP(current)))) {
+        tmp = current;
+        current = SUCC(current);
+    }
+    if (current != NULL){
+        if (tmp != NULL){
+            SUCC(bp) = current;
+            PRED(bp) = tmp;
+            PRED(current) = bp;
+            SUCC(tmp) = bp;
+        }else{
+            SUCC(bp) = current;
+            PRED(bp) = NULL;
+            PRED(current) = bp;
+            free_listp[index] = bp;
+        }
+    }else{
+        if(tmp != NULL){
+            SUCC(bp) = NULL;
+            PRED(bp) = tmp;
+            SUCC(tmp) = bp;
+        }else{
+            SUCC(bp) = NULL;
+            PRED(bp) = NULL;
+            free_list_p[index] = bp;
+        }
+    }
+
     return bp;
 }
 
 static void *detach_free_list(void *bp) {
     // TODO: Implement detach_free_list
     return bp;
+}
+
+static size_t asize_to_index(size_t asize) {
+    size_t power = 1;
+    size_t index = 0;
+
+    if (asize == 0) {
+        return 0;
+    }
+
+    while (power <= asize) {
+        power <<= 1;
+        index += 1;
+    }
+
+    if (index >= SEG_LIST_LEN) {
+        return SEG_LIST_LEN - 1;
+    }
+
+    return index;
 }
