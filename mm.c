@@ -43,9 +43,10 @@ team_t team = {
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
-#define WSIZE     sizeof(void *)
-#define DSIZE     (2 * WSIZE)
-#define CHUNKSIZE (1 << 12) /* Extend heap by this amount (bytes) */
+#define WSIZE        sizeof(void *)
+#define DSIZE        (2 * WSIZE)
+#define CHUNKSIZE    (1 << 12) /* Extend heap by this amount (bytes) */
+#define SEG_LIST_LEN 20
 
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 #define MIN(x, y) ((x) > (y) ? (y) : (x))
@@ -81,12 +82,13 @@ static void place(void *bp, size_t asize);
 static void *find_fit(size_t asize);
 static void *extend_heap(size_t);
 static void *coalesce(void *);
-static void *attach_free_list(void *bp);
+static void *attach_free_list(void *bp, size_t asize);
 static void *detach_free_list(void *bp);
+static size_t asize_to_index(size_t asize);
 
 /* Heap list */
 static void *heap_listp = NULL;
-static void *free_listp = NULL;
+static void *free_listp[SEG_LIST_LEN] = {NULL};
 
 /*
  * mm_init - initialize the malloc package.
@@ -103,7 +105,9 @@ int mm_init(void) {
     PUT(heap_listp + (3 * WSIZE), PACK(0, ALLOC_BLK));      // Epilogue header
 
     heap_listp = heap_listp + (2 * WSIZE);
-    free_listp = NULL;
+    for (size_t i = 0; i < SEG_LIST_LEN; i++) {
+        free_listp[i] = NULL;
+    }
 
     // Extend the empty heap with a free block of CHUNKSIZE bytes
     if (extend_heap(CHUNKSIZE / WSIZE) == NULL) {
@@ -181,8 +185,7 @@ static void *coalesce(void *ptr) {
         ptr = PREV_BLKP(ptr);
     }
 
-    attach_free_list(ptr);
-    free_listp = ptr;
+    attach_free_list(ptr, size);
     return ptr;
 }
 
@@ -196,8 +199,9 @@ void *mm_realloc(void *ptr, size_t size) {
 
     newptr = mm_malloc(size);
     if (newptr == NULL) return NULL;
-    copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
-    if (size < copySize) copySize = size;
+    // copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
+    // if (size < copySize)
+    copySize = size;
     memcpy(newptr, oldptr, copySize);
     mm_free(oldptr);
     return newptr;
@@ -226,11 +230,16 @@ static void *extend_heap(size_t words) {
 }
 
 static void *find_fit(size_t asize) {
-    void *bp;
+    size_t start_index = asize_to_index(asize);
+    for (size_t i = start_index; i < SEG_LIST_LEN; i++) {
+        if (free_listp[i] == NULL) {
+            continue;
+        }
 
-    for (bp = free_listp; bp != NULL; bp = SUCC(bp)) {
-        if (GET_SIZE(HDRP(bp)) >= asize) {
-            return bp;
+        for (void *bp = free_listp[i]; bp != NULL; bp = SUCC(bp)) {
+            if (GET_SIZE(HDRP(bp)) >= asize) {
+                return bp;
+            }
         }
     }
 
@@ -246,47 +255,83 @@ static void place(void *bp, size_t asize) {
         bp = NEXT_BLKP(bp);
         PUT(HDRP(bp), PACK(csize - asize, FREE_BLK));
         PUT(FTRP(bp), PACK(csize - asize, FREE_BLK));
-        attach_free_list(bp);
+        coalesce(bp);
     } else {
         PUT(HDRP(bp), PACK(csize, ALLOC_BLK));
         PUT(FTRP(bp), PACK(csize, ALLOC_BLK));
     }
 }
 
-static void *attach_free_list(void *bp) {
-    if (free_listp == NULL) {
-        free_listp = bp;
-        PRED(bp) = 0;
-        SUCC(bp) = 0;
-        return bp;
+static void *attach_free_list(void *bp, size_t asize) {
+    void *current;
+    void *tmp = NULL;
+
+    size_t index = asize_to_index(asize);
+
+    current = free_listp[index];
+    while ((current != NULL) && (asize > GET_SIZE(HDRP(current)))) {
+        tmp = current;
+        current = SUCC(current);
+    }
+    
+    if (current != NULL) {
+        if (tmp != NULL) {
+            SUCC(bp) = current;
+            PRED(bp) = tmp;
+            PRED(current) = bp;
+            SUCC(tmp) = bp;
+        } else {
+            SUCC(bp) = current;
+            PRED(bp) = NULL;
+            PRED(current) = bp;
+            free_listp[index] = bp;
+        }
+    } else {
+        if (tmp != NULL) {
+            SUCC(bp) = NULL;
+            PRED(bp) = tmp;
+            SUCC(tmp) = bp;
+        } else {
+            SUCC(bp) = NULL;
+            PRED(bp) = NULL;
+            free_listp[index] = bp;
+        }
     }
 
-    PRED(free_listp) = bp;
-    SUCC(bp) = free_listp;
-    PRED(bp) = NULL;
-    free_listp = bp;
     return bp;
 }
 
 static void *detach_free_list(void *bp) {
-    if (bp != free_listp) {
-        if (PRED(bp) != NULL) {
-            SUCC(PRED(bp)) = SUCC(bp);
-        }
-
-        if (SUCC(bp) != NULL) {
-            PRED(SUCC(bp)) = PRED(bp);
-        }
-        return bp;
-    }
-
-    if (bp == free_listp) {
-        free_listp = SUCC(bp);
-        if (free_listp != NULL) {
+    size_t asize = GET_SIZE(HDRP(bp));
+    size_t index = asize_to_index(asize);
+    if (bp == free_listp[index]) {
+        free_listp[index] = SUCC(bp);
+        if (free_listp[index] != NULL) {
             PRED(SUCC(bp)) = NULL;
         }
-        return bp;
+    } else if (SUCC(bp) == NULL) {
+        SUCC(PRED(bp)) = NULL;
+    } else if (SUCC(bp) != NULL) {
+        SUCC(PRED(bp)) = SUCC(bp);
+        PRED(SUCC(bp)) = PRED(bp);
     }
 
     return bp;
+}
+
+static size_t asize_to_index(size_t asize) {
+    size_t power = 1;
+    size_t index = 0;
+    if (asize == 0) {
+        return 0;
+    }
+    while (power <= asize) {
+        power <<= 1;
+        index += 1;
+    }
+
+    if (index >= SEG_LIST_LEN) {
+        index = SEG_LIST_LEN - 1;
+    }
+    return index;
 }
