@@ -266,22 +266,16 @@ static void *attach_free_list(void *bp, size_t asize) {
 static void *detach_free_list(void *bp) {
     size_t asize = GET_SIZE(HDRP(bp));
     size_t index = asize_to_index(asize);
-    void *curr_bp = free_listp[index];
-    while (curr_bp != NULL) {
-        if (curr_bp == bp) {
-            if (curr_bp == free_listp[index]) {
-                free_listp[index] = SUCC(curr_bp);
-            } else if (SUCC(curr_bp) == NULL) {
-                SUCC(PRED(curr_bp)) = NULL;
-            } else if (SUCC(curr_bp) != NULL) {
-                SUCC(PRED(curr_bp)) = SUCC(curr_bp);
-                PRED(SUCC(curr_bp)) = PRED(curr_bp);
-            }
-            return bp;
-        }
-        curr_bp = SUCC(curr_bp);
+    // void *curr_bp = free_listp[index];
+    if (bp == free_listp[index]) {
+        free_listp[index] = SUCC(bp);
+    } else if (SUCC(bp) == NULL) {
+        SUCC(PRED(bp)) = NULL;
+    } else if (SUCC(bp) != NULL) {
+        SUCC(PRED(bp)) = SUCC(bp);
+        PRED(SUCC(bp)) = PRED(bp);
     }
-    return NULL;
+    return bp;
 }
 
 static size_t asize_to_index(size_t asize) {
