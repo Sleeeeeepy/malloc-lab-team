@@ -231,8 +231,9 @@ static void *extend_heap(size_t words) {
 
 static void *find_fit(size_t asize) {
     void *bp;
+    size_t index = asize_to_index(asize);
 
-    for (bp = free_listp; bp != NULL; bp = SUCC(bp)) {
+    for (bp = free_listp[index]; bp != NULL; bp = SUCC(bp)) {
         if (GET_SIZE(HDRP(bp)) >= asize) {
             return bp;
         }
@@ -271,10 +272,10 @@ static void *detach_free_list(void *bp) {
             if (curr_bp == free_listp[index]) {
                 free_listp[index] = SUCC(curr_bp);
             } else if (SUCC(curr_bp) == NULL) {
-                SUCC(PREV(curr_bp)) = NULL;
+                SUCC(PRED(curr_bp)) = NULL;
             } else if (SUCC(curr_bp) != NULL) {
-                SUCC(PREV(curr_bp)) = SUCC(curr_bp);
-                PREV(SUCC(curr_bp)) = PREV(curr_bp);
+                SUCC(PRED(curr_bp)) = SUCC(curr_bp);
+                PRED(SUCC(curr_bp)) = PRED(curr_bp);
             }
             return bp;
         }
