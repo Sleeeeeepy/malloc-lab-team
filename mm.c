@@ -269,28 +269,29 @@ static void *attach_free_list(void *bp, size_t asize) {
     size_t index = asize_to_index(asize);
 
     current = free_listp[index];
-    while (( current != NULL ) && ( asize > GET_SIZE(HDRP(current)))) {
+    while ((current != NULL) && (asize > GET_SIZE(HDRP(current)))) {
         tmp = current;
         current = SUCC(current);
     }
-    if (current != NULL){
-        if (tmp != NULL){
+    
+    if (current != NULL) {
+        if (tmp != NULL) {
             SUCC(bp) = current;
             PRED(bp) = tmp;
             PRED(current) = bp;
             SUCC(tmp) = bp;
-        }else{
+        } else {
             SUCC(bp) = current;
             PRED(bp) = NULL;
             PRED(current) = bp;
             free_listp[index] = bp;
         }
-    }else{
-        if(tmp != NULL){
+    } else {
+        if (tmp != NULL) {
             SUCC(bp) = NULL;
             PRED(bp) = tmp;
             SUCC(tmp) = bp;
-        }else{
+        } else {
             SUCC(bp) = NULL;
             PRED(bp) = NULL;
             free_listp[index] = bp;
