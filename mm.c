@@ -46,6 +46,7 @@ team_t team = {
 #define WSIZE     sizeof(void *)
 #define DSIZE     (2 * WSIZE)
 #define CHUNKSIZE (1 << 12) /* Extend heap by this amount (bytes) */
+#define SEG_LIST_LEN 20
 
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 #define MIN(x, y) ((x) > (y) ? (y) : (x))
@@ -86,7 +87,7 @@ static void *detach_free_list(void *bp);
 
 /* Heap list */
 static void *heap_listp = NULL;
-static void *free_listp = NULL;
+static void *free_listp[SEG_LIST_LEN] = {NULL};
 
 /*
  * mm_init - initialize the malloc package.
@@ -103,7 +104,9 @@ int mm_init(void) {
     PUT(heap_listp + (3 * WSIZE), PACK(0, ALLOC_BLK));      // Epilogue header
 
     heap_listp = heap_listp + (2 * WSIZE);
-    free_listp = NULL;
+    for (size_t i = 0; i < SEG_LIST_LEN; i++) {
+        free_listp[SEG_LIST_LEN] = NULL;
+    }
 
     // Extend the empty heap with a free block of CHUNKSIZE bytes
     if (extend_heap(CHUNKSIZE / WSIZE) == NULL) {
@@ -182,7 +185,6 @@ static void *coalesce(void *ptr) {
     }
 
     attach_free_list(ptr);
-    free_listp = ptr;
     return ptr;
 }
 
@@ -196,8 +198,9 @@ void *mm_realloc(void *ptr, size_t size) {
 
     newptr = mm_malloc(size);
     if (newptr == NULL) return NULL;
-    copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
-    if (size < copySize) copySize = size;
+    // copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
+    // if (size < copySize)
+    copySize = size;
     memcpy(newptr, oldptr, copySize);
     mm_free(oldptr);
     return newptr;
@@ -254,39 +257,11 @@ static void place(void *bp, size_t asize) {
 }
 
 static void *attach_free_list(void *bp) {
-    if (free_listp == NULL) {
-        free_listp = bp;
-        PRED(bp) = 0;
-        SUCC(bp) = 0;
-        return bp;
-    }
-
-    PRED(free_listp) = bp;
-    SUCC(bp) = free_listp;
-    PRED(bp) = NULL;
-    free_listp = bp;
+    // TODO: Implement attach_free_list
     return bp;
 }
 
 static void *detach_free_list(void *bp) {
-    if (bp != free_listp) {
-        if (PRED(bp) != NULL) {
-            SUCC(PRED(bp)) = SUCC(bp);
-        }
-
-        if (SUCC(bp) != NULL) {
-            PRED(SUCC(bp)) = PRED(bp);
-        }
-        return bp;
-    }
-
-    if (bp == free_listp) {
-        free_listp = SUCC(bp);
-        if (free_listp != NULL) {
-            PRED(SUCC(bp)) = NULL;
-        }
-        return bp;
-    }
-
+    // TODO: Implement detach_free_list
     return bp;
 }
