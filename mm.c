@@ -82,7 +82,7 @@ static void place(void *bp, size_t asize);
 static void *find_fit(size_t asize);
 static void *extend_heap(size_t);
 static void *coalesce(void *);
-static void *attach_free_list(void *bp);
+static void *attach_free_list(void *bp, size_t asize);
 static void *detach_free_list(void *bp);
 
 /* Heap list */
@@ -184,7 +184,7 @@ static void *coalesce(void *ptr) {
         ptr = PREV_BLKP(ptr);
     }
 
-    attach_free_list(ptr);
+    attach_free_list(ptr, size);
     return ptr;
 }
 
@@ -249,14 +249,14 @@ static void place(void *bp, size_t asize) {
         bp = NEXT_BLKP(bp);
         PUT(HDRP(bp), PACK(csize - asize, FREE_BLK));
         PUT(FTRP(bp), PACK(csize - asize, FREE_BLK));
-        attach_free_list(bp);
+        coalesce(bp);
     } else {
         PUT(HDRP(bp), PACK(csize, ALLOC_BLK));
         PUT(FTRP(bp), PACK(csize, ALLOC_BLK));
     }
 }
 
-static void *attach_free_list(void *bp) {
+static void *attach_free_list(void *bp, size_t asize) {
     // TODO: Implement attach_free_list
     return bp;
 }
