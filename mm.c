@@ -43,9 +43,9 @@ team_t team = {
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
-#define WSIZE     sizeof(void *)
-#define DSIZE     (2 * WSIZE)
-#define CHUNKSIZE (1 << 12) /* Extend heap by this amount (bytes) */
+#define WSIZE        sizeof(void *)
+#define DSIZE        (2 * WSIZE)
+#define CHUNKSIZE    (1 << 12) /* Extend heap by this amount (bytes) */
 #define SEG_LIST_LEN 20
 
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
@@ -84,6 +84,7 @@ static void *extend_heap(size_t);
 static void *coalesce(void *);
 static void *attach_free_list(void *bp, size_t asize);
 static void *detach_free_list(void *bp);
+static size_t asize_to_index(size_t asize);
 
 /* Heap list */
 static void *heap_listp = NULL;
@@ -262,6 +263,39 @@ static void *attach_free_list(void *bp, size_t asize) {
 }
 
 static void *detach_free_list(void *bp) {
-    // TODO: Implement detach_free_list
-    return bp;
+    size_t asize = GET_SIZE(HDRP(bp));
+    size_t index = asize_to_index(asize);
+    void *curr_bp = free_listp[index];
+    while (curr_bp != NULL) {
+        if (curr_bp == bp) {
+            if (curr_bp == free_listp[index]) {
+                free_listp[index] = SUCC(curr_bp);
+            } else if (SUCC(curr_bp) == NULL) {
+                SUCC(PREV(curr_bp)) = NULL;
+            } else if (SUCC(curr_bp) != NULL) {
+                SUCC(PREV(curr_bp)) = SUCC(curr_bp);
+                PREV(SUCC(curr_bp)) = PREV(curr_bp);
+            }
+            return bp;
+        }
+        curr_bp = SUCC(curr_bp);
+    }
+    return NULL;
+}
+
+static size_t asize_to_index(size_t asize) {
+    size_t power = 1;
+    size_t index = 0;
+    if (asize == 0) {
+        return 0;
+    }
+    while (power <= asize) {
+        power <<= 1;
+        index += 1;
+    }
+
+    if (index >= SEG_LIST_LEN) {
+        index = SEG_LIST_LEN - 1;
+    }
+    return index;
 }
