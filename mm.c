@@ -84,6 +84,7 @@ static void *extend_heap(size_t);
 static void *coalesce(void *);
 static void *attach_free_list(void *bp, size_t asize);
 static void *detach_free_list(void *bp);
+static size_t asize_to_index(size_t asize);
 
 /* Heap list */
 static void *heap_listp = NULL;
@@ -229,6 +230,23 @@ static void *extend_heap(size_t words) {
 }
 
 static void *find_fit(size_t asize) {
+    size_t start_index = asize_to_index(asize);
+    for (size_t i = start_index; i < SEG_LIST_LEN; i++) {
+        if (free_listp[i] == NULL) {
+            continue;
+        }
+
+        for (void *bp = free_listp[i]; bp != NULL; bp = SUCC(bp)) {
+            if (GET_SIZE(HDRP(bp)) >= asize) {
+                return bp;
+            }
+        }
+    }
+
+    return NULL;
+}
+
+static void *find_fit(size_t asize) {
     void *bp;
 
     for (bp = free_listp; bp != NULL; bp = SUCC(bp)) {
@@ -300,4 +318,24 @@ static void *attach_free_list(void *bp, size_t asize) {
 static void *detach_free_list(void *bp) {
     // TODO: Implement detach_free_list
     return bp;
+}
+
+static size_t asize_to_index(size_t asize) {
+    size_t power = 1;
+    size_t index = 0;
+
+    if (asize == 0) {
+        return 0;
+    }
+
+    while (power <= asize) {
+        power <<= 1;
+        index += 1;
+    }
+
+    if (index >= SEG_LIST_LEN) {
+        return SEG_LIST_LEN - 1;
+    }
+
+    return index;
 }
