@@ -246,19 +246,6 @@ static void *find_fit(size_t asize) {
     return NULL;
 }
 
-static void *find_fit(size_t asize) {
-    void *bp;
-    size_t index = asize_to_index(asize);
-
-    for (bp = free_listp[index]; bp != NULL; bp = SUCC(bp)) {
-        if (GET_SIZE(HDRP(bp)) >= asize) {
-            return bp;
-        }
-    }
-
-    return NULL;
-}
-
 static void place(void *bp, size_t asize) {
     size_t csize = GET_SIZE(HDRP(bp));
     detach_free_list(bp);
@@ -280,12 +267,12 @@ static void *attach_free_list(void *bp, size_t asize) {
     void *current;
     void *tmp = NULL;
 
-    while((index < SEG_LIST_LEN - 1) && (size > 1)){
-        size >>= 1;
+    while((index < SEG_LIST_LEN - 1) && (asize > 1)){
+        asize >>= 1;
         index += 1;
     }
     current = free_listp[index];
-    while (( current != NULL ) && ( size > GET_SIZE(HDRP(current)))) {
+    while (( current != NULL ) && ( asize > GET_SIZE(HDRP(current)))) {
         tmp = current;
         current = SUCC(current);
     }
@@ -309,7 +296,7 @@ static void *attach_free_list(void *bp, size_t asize) {
         }else{
             SUCC(bp) = NULL;
             PRED(bp) = NULL;
-            free_list_p[index] = bp;
+            free_listp[index] = bp;
         }
     }
 
