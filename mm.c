@@ -263,14 +263,11 @@ static void place(void *bp, size_t asize) {
 }
 
 static void *attach_free_list(void *bp, size_t asize) {
-    int index = 0;
     void *current;
     void *tmp = NULL;
 
-    while((index < SEG_LIST_LEN - 1) && (asize > 1)){
-        asize >>= 1;
-        index += 1;
-    }
+    size_t index = asize_to_index(asize);
+
     current = free_listp[index];
     while (( current != NULL ) && ( asize > GET_SIZE(HDRP(current)))) {
         tmp = current;
@@ -306,15 +303,18 @@ static void *attach_free_list(void *bp, size_t asize) {
 static void *detach_free_list(void *bp) {
     size_t asize = GET_SIZE(HDRP(bp));
     size_t index = asize_to_index(asize);
-    // void *curr_bp = free_listp[index];
     if (bp == free_listp[index]) {
         free_listp[index] = SUCC(bp);
+        if (free_listp[index] != NULL) {
+            PRED(SUCC(bp)) = NULL;
+        }
     } else if (SUCC(bp) == NULL) {
         SUCC(PRED(bp)) = NULL;
     } else if (SUCC(bp) != NULL) {
         SUCC(PRED(bp)) = SUCC(bp);
         PRED(SUCC(bp)) = PRED(bp);
     }
+
     return bp;
 }
 
